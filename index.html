@@ -1,0 +1,597 @@
+<!DOCTYPE html>
+<html lang="ja">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+<title>AI・半導体 構造マップ (モック)</title>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/d3/7.9.0/d3.min.js"></script>
+<style>
+  :root{
+    --bg:#07080d;
+    --bg2:#0d0f18;
+    --panel:#111420ee;
+    --border:#242938;
+    --text:#e7e9f0;
+    --sub:#9aa0b4;
+    --accent:#22d3ee;
+  }
+  *{box-sizing:border-box;}
+  html,body{margin:0;padding:0;width:100%;height:100%;background:var(--bg);color:var(--text);
+    font-family:-apple-system,BlinkMacSystemFont,"Hiragino Sans","Hiragino Kaku Gothic ProN","Yu Gothic",sans-serif;
+    overflow:hidden;overscroll-behavior:none;}
+  #app{position:relative;width:100vw;height:100vh;}
+  svg{width:100%;height:100%;display:block;background:radial-gradient(ellipse at 50% 40%, #12141f 0%, #07080d 70%);cursor:grab;}
+  svg.dragging{cursor:grabbing;}
+
+  /* ---- top bar ---- */
+  #topbar{position:absolute;top:0;left:0;right:0;z-index:20;display:flex;align-items:center;gap:10px;
+    padding:10px 12px;pointer-events:none;}
+  #topbar > *{pointer-events:auto;}
+  #title{font-size:14px;font-weight:600;letter-spacing:.02em;color:var(--text);white-space:nowrap;
+    background:var(--panel);border:1px solid var(--border);padding:7px 12px;border-radius:10px;backdrop-filter:blur(6px);}
+  #title small{display:block;font-weight:400;color:var(--sub);font-size:10px;margin-top:1px;}
+  #searchWrap{flex:1;max-width:280px;position:relative;}
+  #search{width:100%;background:var(--panel);border:1px solid var(--border);color:var(--text);
+    padding:9px 12px 9px 32px;border-radius:10px;font-size:13px;outline:none;backdrop-filter:blur(6px);}
+  #search::placeholder{color:var(--sub);}
+  #search:focus{border-color:var(--accent);}
+  #searchIcon{position:absolute;left:10px;top:50%;transform:translateY(-50%);color:var(--sub);font-size:13px;pointer-events:none;}
+  #legendToggle{background:var(--panel);border:1px solid var(--border);color:var(--text);border-radius:10px;
+    padding:9px 12px;font-size:12px;cursor:pointer;backdrop-filter:blur(6px);white-space:nowrap;}
+  #legendToggle:hover{border-color:var(--accent);}
+
+  /* ---- legend ---- */
+  #legend{position:absolute;left:12px;bottom:12px;z-index:20;background:var(--panel);border:1px solid var(--border);
+    border-radius:12px;padding:10px;backdrop-filter:blur(6px);max-width:210px;transition:transform .2s ease,opacity .2s ease;}
+  #legend.hidden{transform:translateY(12px);opacity:0;pointer-events:none;}
+  #legend .lg-title{font-size:10px;color:var(--sub);margin-bottom:6px;letter-spacing:.05em;}
+  .lg-item{display:flex;align-items:center;gap:7px;padding:4px 6px;border-radius:7px;cursor:pointer;font-size:11.5px;
+    color:var(--text);user-select:none;transition:background .15s;}
+  .lg-item:hover{background:#ffffff0d;}
+  .lg-item.off{opacity:.35;}
+  .lg-dot{width:9px;height:9px;border-radius:50%;flex-shrink:0;box-shadow:0 0 6px currentColor;}
+  .lg-reset{margin-top:6px;font-size:10.5px;color:var(--accent);cursor:pointer;text-align:right;}
+
+  /* ---- zoom controls ---- */
+  #zoomctl{position:absolute;right:12px;bottom:12px;z-index:20;display:flex;flex-direction:column;gap:6px;}
+  .zbtn{width:36px;height:36px;background:var(--panel);border:1px solid var(--border);color:var(--text);
+    border-radius:10px;font-size:16px;cursor:pointer;backdrop-filter:blur(6px);display:flex;align-items:center;justify-content:center;}
+  .zbtn:hover{border-color:var(--accent);color:var(--accent);}
+  .zbtn:active{transform:scale(.95);}
+
+  /* ---- hint ---- */
+  #hint{position:absolute;left:50%;top:10px;transform:translateX(-50%);z-index:15;font-size:11px;color:var(--sub);
+    background:var(--panel);border:1px solid var(--border);padding:5px 10px;border-radius:8px;pointer-events:none;
+    opacity:.9;transition:opacity .5s;}
+
+  /* ---- detail panel (desktop = side, mobile = bottom sheet) ---- */
+  #detail{position:absolute;top:0;right:0;height:100%;width:340px;max-width:88vw;background:var(--panel);
+    border-left:1px solid var(--border);backdrop-filter:blur(10px);z-index:30;transform:translateX(100%);
+    transition:transform .28s cubic-bezier(.2,.8,.3,1);overflow-y:auto;padding:18px 18px 40px;}
+  #detail.open{transform:translateX(0);}
+  #detail .close{position:absolute;top:12px;right:12px;width:28px;height:28px;border-radius:50%;
+    background:#ffffff10;border:none;color:var(--text);font-size:15px;cursor:pointer;display:flex;align-items:center;justify-content:center;}
+  #detail .cat-badge{display:inline-flex;align-items:center;gap:6px;font-size:11px;padding:4px 10px;border-radius:999px;
+    background:#ffffff0f;border:1px solid var(--border);margin-bottom:10px;}
+  #detail .cat-dot{width:8px;height:8px;border-radius:50%;}
+  #detail h2{margin:2px 0 2px;font-size:19px;font-weight:700;line-height:1.3;padding-right:30px;}
+  #detail .ticker{font-size:12.5px;color:var(--sub);margin-bottom:14px;}
+  #detail .strength-row{margin-bottom:16px;}
+  #detail .strength-label{font-size:11px;color:var(--sub);margin-bottom:5px;display:flex;justify-content:space-between;}
+  #detail .strength-bar{height:7px;border-radius:99px;background:#ffffff12;overflow:hidden;}
+  #detail .strength-fill{height:100%;border-radius:99px;}
+  #detail .desc{font-size:13.2px;line-height:1.75;color:#d5d8e2;margin-bottom:18px;}
+  #detail .rel-title{font-size:11px;color:var(--sub);margin:16px 0 8px;letter-spacing:.05em;}
+  .rel-item{display:flex;align-items:center;gap:8px;padding:8px 10px;border-radius:9px;background:#ffffff08;
+    margin-bottom:6px;cursor:pointer;font-size:12.5px;transition:background .15s;border:1px solid transparent;}
+  .rel-item:hover{background:#ffffff14;border-color:var(--border);}
+  .rel-dot{width:8px;height:8px;border-radius:50%;flex-shrink:0;}
+  .rel-name{flex:1;color:var(--text);}
+  .rel-type{font-size:10px;color:var(--sub);border:1px solid var(--border);padding:1px 6px;border-radius:99px;}
+
+  @media (max-width:720px){
+    #detail{left:0;right:0;top:auto;bottom:0;width:100%;max-width:100%;height:62vh;border-left:none;
+      border-top:1px solid var(--border);border-radius:18px 18px 0 0;transform:translateY(100%);padding:16px 16px 30px;}
+    #detail.open{transform:translateY(0);}
+    #title small{display:none;}
+    #searchWrap{max-width:150px;}
+    #legend{max-width:150px;font-size:11px;}
+  }
+
+  .node-label{fill:#c7cbe0;font-size:10px;pointer-events:none;font-family:inherit;paint-order:stroke;
+    stroke:#07080dcc;stroke-width:3px;stroke-linejoin:round;}
+  .node-label.big{font-size:12px;fill:#f2f3f8;font-weight:600;}
+</style>
+</head>
+<body>
+<div id="app">
+  <svg id="canvas"></svg>
+
+  <div id="topbar">
+    <div id="title">AI・半導体 構造マップ<small>モック / サンプルデータ・強さ指標は仮</small></div>
+    <div id="searchWrap">
+      <span id="searchIcon">&#128269;</span>
+      <input id="search" type="text" placeholder="銘柄名・ティッカーで検索…" autocomplete="off">
+    </div>
+    <button id="legendToggle">凡例</button>
+  </div>
+
+  <div id="hint">ドラッグで移動 / ホイール・ピンチで拡大縮小 / 玉をタップで詳細</div>
+
+  <div id="legend"></div>
+
+  <div id="zoomctl">
+    <button class="zbtn" id="zin">+</button>
+    <button class="zbtn" id="zout">−</button>
+    <button class="zbtn" id="zreset" style="font-size:12px;">⟳</button>
+  </div>
+
+  <div id="detail">
+    <button class="close" id="detailClose">✕</button>
+    <div id="detailBody"></div>
+  </div>
+</div>
+
+<script>
+/* =========================================================================
+   1. カテゴリ定義
+   ========================================================================= */
+const CATS = {
+  gpu:     { label:'AI半導体/GPU',         color:'#22d3ee' },
+  foundry: { label:'ファウンドリ',          color:'#a78bfa' },
+  equip:   { label:'製造装置',              color:'#fbbf24' },
+  material:{ label:'材料',                  color:'#34d399' },
+  memory:  { label:'メモリ/HBM',            color:'#f472b6' },
+  package: { label:'パッケージング/基板',    color:'#60a5fa' },
+  optic:   { label:'光通信/データセンター',  color:'#fb923c' },
+  power:   { label:'電源/冷却',              color:'#f87171' },
+  cloud:   { label:'クラウド/需要側',        color:'#e5e7eb' },
+};
+
+/* =========================================================================
+   2. ノード(銘柄)データ  ※strengthはテーマ内重要度の仮スコア(1-10)。実際の
+      時価総額や株価とは連動していません。操作感確認用のサンプルです。
+   ========================================================================= */
+const nodes = [
+ {id:'nvda',cat:'gpu',name:'NVIDIA',ticker:'NVDA',market:'US',strength:10,
+  desc:'AI向けGPUの世界的リーダー。CUDAソフトウェア基盤も含めた事実上の業界標準で、データセンター向けAIアクセラレータ市場を圧倒的シェアで握る。'},
+ {id:'amd',cat:'gpu',name:'AMD',ticker:'AMD',market:'US',strength:6,
+  desc:'MI300シリーズ等でNVIDIAに対抗するAI向けGPU/アクセラレータメーカー。'},
+ {id:'avgo',cat:'gpu',name:'ブロードコム',ticker:'AVGO',market:'US',strength:8,
+  desc:'Google・Meta等ハイパースケーラー向けカスタムAIチップ(ASIC)の共同開発を主導。ネットワーク半導体にも強み。'},
+ {id:'googl',cat:'gpu',name:'Google(Alphabet)',ticker:'GOOGL',market:'US',strength:7,
+  desc:'自社設計のAIアクセラレータ(TPU)を保有。AI基盤モデルとインフラの両方を手掛ける。'},
+ {id:'mrvl',cat:'gpu',name:'マーベル・テクノロジー',ticker:'MRVL',market:'US',strength:6,
+  desc:'データセンター向けカスタムASICと光インターコネクト技術に強み。'},
+
+ {id:'tsmc',cat:'foundry',name:'TSMC',ticker:'2330',market:'TW',strength:10,
+  desc:'世界最大の半導体受託製造(ファウンドリ)。NVIDIA・AMD・Apple等、最先端チップの生産を事実上独占する供給網の要。'},
+ {id:'samsung',cat:'foundry',name:'サムスン電子',ticker:'005930',market:'KR',strength:6,
+  desc:'ファウンドリとメモリを併せ持つ垂直統合型メーカー。先端プロセスでTSMCを追う。'},
+ {id:'rapidus',cat:'foundry',name:'ラピダス',ticker:'非上場',market:'JP',strength:4,
+  desc:'日本の官民出資による次世代半導体国産化プロジェクト。2nmプロセスの量産を目指す。'},
+ {id:'intel',cat:'foundry',name:'インテル',ticker:'INTC',market:'US',strength:4,
+  desc:'IDMからファウンドリ事業(Intel Foundry)への転換を進める米国最大手半導体メーカー。'},
+
+ {id:'asml',cat:'equip',name:'ASML',ticker:'ASML',market:'NL',strength:10,
+  desc:'EUV露光装置を世界で唯一供給。先端プロセス実現のボトルネックを握る装置メーカー。'},
+ {id:'tel',cat:'equip',name:'東京エレクトロン',ticker:'8035',market:'JP',strength:9,
+  desc:'成膜・エッチング・洗浄・コータデベロッパで世界トップシェアを持つ総合装置メーカー。'},
+ {id:'amat',cat:'equip',name:'アプライドマテリアルズ',ticker:'AMAT',market:'US',strength:8,
+  desc:'世界最大の総合半導体製造装置メーカー。'},
+ {id:'lrcx',cat:'equip',name:'ラムリサーチ',ticker:'LRCX',market:'US',strength:7,
+  desc:'エッチング・成膜装置に強みを持つ米国装置大手。'},
+ {id:'advantest',cat:'equip',name:'アドバンテスト',ticker:'6857',market:'JP',strength:8,
+  desc:'半導体テスタ世界最大手。AI半導体の検査需要拡大の恩恵を受ける。'},
+ {id:'kla',cat:'equip',name:'KLA',ticker:'KLAC',market:'US',strength:6,
+  desc:'半導体の検査・計測装置大手。'},
+ {id:'disco',cat:'equip',name:'ディスコ',ticker:'6146',market:'JP',strength:7,
+  desc:'ダイシング・グラインダ装置大手。先端パッケージング需要拡大で存在感を増す。'},
+ {id:'lasertec',cat:'equip',name:'レーザーテック',ticker:'6920',market:'JP',strength:7,
+  desc:'EUVマスク欠陥検査装置を実質独占するニッチトップ企業。'},
+ {id:'screen',cat:'equip',name:'SCREENホールディングス',ticker:'7735',market:'JP',strength:6,
+  desc:'洗浄装置で世界トップシェアを持つ装置メーカー。'},
+ {id:'kokusai',cat:'equip',name:'国際電気',ticker:'6525',market:'JP',strength:5,
+  desc:'バッチ式ALD等の成膜装置に強みを持つ。'},
+
+ {id:'shinetsu',cat:'material',name:'信越化学工業',ticker:'4063',market:'JP',strength:8,
+  desc:'シリコンウェハーで世界首位級。フォトレジスト等の機能化学品も展開する総合素材メーカー。'},
+ {id:'sumco',cat:'material',name:'SUMCO',ticker:'3436',market:'JP',strength:6,
+  desc:'シリコンウェハー世界2位級メーカー。'},
+ {id:'resonac',cat:'material',name:'レゾナック',ticker:'4004',market:'JP',strength:5,
+  desc:'半導体パッケージング材料など機能化学品を手掛けるメーカー。'},
+ {id:'jsr',cat:'material',name:'JSR',ticker:'非公開化',market:'JP',strength:5,
+  desc:'フォトレジストで世界大手の化学メーカー。'},
+ {id:'tok',cat:'material',name:'東京応化工業',ticker:'4186',market:'JP',strength:5,
+  desc:'フォトレジストで世界的シェアを持つ化学メーカー。'},
+
+ {id:'skhynix',cat:'memory',name:'SKハイニックス',ticker:'000660',market:'KR',strength:9,
+  desc:'HBM(広帯域メモリ)でNVIDIA向け供給をリードするメモリ大手。'},
+ {id:'micron',cat:'memory',name:'マイクロン・テクノロジー',ticker:'MU',market:'US',strength:7,
+  desc:'HBM/DRAM大手。AI需要の取り込みで業績が拡大。'},
+ {id:'kioxia',cat:'memory',name:'キオクシア',ticker:'285A',market:'JP',strength:5,
+  desc:'NAND型フラッシュメモリの世界大手。'},
+
+ {id:'ibiden',cat:'package',name:'イビデン',ticker:'4062',market:'JP',strength:7,
+  desc:'ICパッケージ基板大手。AI半導体向け高多層FCBGA基板に強み。'},
+ {id:'shinko',cat:'package',name:'新光電気工業',ticker:'6967',market:'JP',strength:6,
+  desc:'ICパッケージ基板でイビデンと並ぶ国内大手メーカー。'},
+ {id:'ase',cat:'package',name:'ASEテクノロジー',ticker:'3711',market:'TW',strength:5,
+  desc:'世界最大手の半導体後工程受託(OSAT)メーカー。'},
+
+ {id:'furukawa',cat:'optic',name:'古河電気工業',ticker:'5801',market:'JP',strength:6,
+  desc:'光ファイバー・データセンター向け高速配線に強みを持つ。'},
+ {id:'sumitomoelec',cat:'optic',name:'住友電気工業',ticker:'5802',market:'JP',strength:6,
+  desc:'光通信・電線事業の大手総合電線メーカー。'},
+ {id:'fujikura',cat:'optic',name:'フジクラ',ticker:'5803',market:'JP',strength:7,
+  desc:'データセンター向け光ファイバー・高速接続部材で業績が急伸。'},
+ {id:'lumentum',cat:'optic',name:'ルーメンタム',ticker:'LITE',market:'US',strength:5,
+  desc:'光デバイスメーカー。AIクラスタ向け光接続需要を取り込む。'},
+ {id:'coherent',cat:'optic',name:'コヒレント',ticker:'COHR',market:'US',strength:5,
+  desc:'光部品・レーザー技術大手。'},
+
+ {id:'tdk',cat:'power',name:'TDK',ticker:'6762',market:'JP',strength:6,
+  desc:'電源部品・積層セラミックコンデンサ大手の電子部品メーカー。'},
+ {id:'nidec',cat:'power',name:'ニデック',ticker:'6594',market:'JP',strength:5,
+  desc:'モーター・冷却ファン技術に強みを持つ総合モーターメーカー。'},
+ {id:'mhi',cat:'power',name:'三菱重工業',ticker:'7011',market:'JP',strength:5,
+  desc:'データセンター向け空調・熱管理設備を手掛ける重工メーカー。'},
+ {id:'shindengen',cat:'power',name:'新電元工業',ticker:'6844',market:'JP',strength:4,
+  desc:'パワー半導体を手掛けるメーカー。'},
+
+ {id:'msft',cat:'cloud',name:'マイクロソフト',ticker:'MSFT',market:'US',strength:8,
+  desc:'Azureを運営。OpenAIへの巨額投資でAIインフラ需要を牽引するハイパースケーラー。'},
+ {id:'amzn',cat:'cloud',name:'アマゾン',ticker:'AMZN',market:'US',strength:7,
+  desc:'AWSを運営。自社AIチップ(Trainium/Inferentia)の開発も進める。'},
+ {id:'meta',cat:'cloud',name:'メタ',ticker:'META',market:'US',strength:6,
+  desc:'自社AIチップ(MTIA)開発と大量のGPU調達を両立するプラットフォーマー。'},
+ {id:'openai',cat:'cloud',name:'OpenAI',ticker:'非上場',market:'US',strength:5,
+  desc:'生成AIの需要を牽引する研究開発企業。投資対象ではないが、構造理解の起点として重要。'},
+];
+
+/* =========================================================================
+   3. 関係性データ (供給/競合/顧客)
+   ========================================================================= */
+const links = [
+ // GPU/AI半導体 → ファウンドリ (製造委託)
+ ['nvda','tsmc','supply'],['amd','tsmc','supply'],['avgo','tsmc','supply'],
+ ['googl','tsmc','supply'],['mrvl','tsmc','supply'],
+ ['intel','tsmc','compete'],['samsung','tsmc','compete'],['rapidus','tsmc','compete'],
+
+ // ファウンドリ → 製造装置 (装置調達)
+ ['tsmc','asml','supply'],['tsmc','tel','supply'],['tsmc','amat','supply'],['tsmc','lrcx','supply'],
+ ['tsmc','advantest','supply'],['tsmc','kla','supply'],['tsmc','disco','supply'],
+ ['tsmc','lasertec','supply'],['tsmc','screen','supply'],['tsmc','kokusai','supply'],
+ ['samsung','asml','supply'],['samsung','tel','supply'],['samsung','advantest','supply'],
+ ['rapidus','asml','supply'],['rapidus','tel','supply'],['rapidus','lasertec','supply'],
+ ['intel','asml','supply'],['intel','tel','supply'],['intel','amat','supply'],
+
+ // ファウンドリ → 材料
+ ['tsmc','shinetsu','supply'],['tsmc','sumco','supply'],['tsmc','jsr','supply'],['tsmc','tok','supply'],
+ ['samsung','shinetsu','supply'],['samsung','sumco','supply'],['rapidus','shinetsu','supply'],
+ ['tsmc','resonac','supply'],['ibiden','resonac','supply'],['shinko','resonac','supply'],
+
+ // GPU ⇄ メモリ (HBM調達)
+ ['nvda','skhynix','supply'],['nvda','micron','supply'],['nvda','samsung','supply'],['amd','skhynix','supply'],
+
+ // メモリ → 製造装置
+ ['skhynix','tel','supply'],['skhynix','lasertec','supply'],['skhynix','advantest','supply'],
+ ['micron','tel','supply'],['kioxia','tel','supply'],['kioxia','screen','supply'],
+
+ // ファウンドリ/GPU → パッケージング (先端パッケージ)
+ ['tsmc','ibiden','supply'],['tsmc','shinko','supply'],['tsmc','ase','supply'],
+ ['nvda','ibiden','supply'],['nvda','ase','supply'],
+ ['disco','ibiden','supply'],['disco','ase','supply'],
+
+ // クラウド → 光通信/データセンター
+ ['msft','fujikura','supply'],['msft','furukawa','supply'],['amzn','sumitomoelec','supply'],
+ ['meta','lumentum','supply'],['googl','coherent','supply'],['nvda','lumentum','supply'],
+ ['mrvl','lumentum','compete'],
+
+ // クラウド → 電源/冷却
+ ['msft','mhi','supply'],['amzn','nidec','supply'],['meta','tdk','supply'],['googl','shindengen','supply'],
+ ['nvda','tdk','supply'],['nvda','nidec','supply'],
+
+ // クラウド(需要側) ⇄ GPU/AI半導体 (顧客)
+ ['msft','nvda','customer'],['amzn','nvda','customer'],['meta','nvda','customer'],['googl','nvda','customer'],
+ ['openai','nvda','customer'],['openai','msft','customer'],['openai','avgo','customer'],
+ ['amzn','avgo','customer'],['googl','avgo','customer'],['meta','avgo','customer'],
+
+ // 競合関係
+ ['amd','nvda','compete'],['intel','nvda','compete'],['samsung','skhynix','compete'],
+ ['micron','skhynix','compete'],['kioxia','micron','compete'],['shinko','ibiden','compete'],
+ ['lrcx','amat','compete'],
+].map(([source,target,type])=>({source,target,type}));
+
+const nodeById = Object.fromEntries(nodes.map(n=>[n.id,n]));
+const LINK_TYPE_LABEL = {supply:'供給',compete:'競合',customer:'顧客'};
+
+/* =========================================================================
+   4. サイズ・レイアウト設定
+   ========================================================================= */
+const rScale = d3.scaleSqrt().domain([1,10]).range([7,30]);
+const catList = Object.keys(CATS);
+const catAngle = d3.scaleLinear().domain([0,catList.length]).range([0,2*Math.PI]);
+
+let W = window.innerWidth, H = window.innerHeight;
+const clusterR = () => Math.min(W,H)*0.32;
+const clusterCenter = {};
+catList.forEach((c,i)=>{
+  clusterCenter[c] = {
+    x: () => W/2 + Math.cos(catAngle(i)) * clusterR(),
+    y: () => H/2 + Math.sin(catAngle(i)) * clusterR(),
+  };
+});
+
+/* =========================================================================
+   5. SVG構築
+   ========================================================================= */
+const svg = d3.select('#canvas');
+const defs = svg.append('defs');
+
+// グロー用フィルタ
+const glow = defs.append('filter').attr('id','glow').attr('x','-150%').attr('y','-150%').attr('width','400%').attr('height','400%');
+glow.append('feGaussianBlur').attr('stdDeviation',4).attr('result','blur');
+const merge = glow.append('feMerge');
+merge.append('feMergeNode').attr('in','blur');
+merge.append('feMergeNode').attr('in','SourceGraphic');
+
+const root = svg.append('g').attr('id','root');
+const linkLayer = root.append('g').attr('class','links');
+const glowLayer = root.append('g').attr('class','glows');
+const nodeLayer = root.append('g').attr('class','nodes');
+const labelLayer = root.append('g').attr('class','labels');
+
+/* zoom */
+const zoom = d3.zoom()
+  .scaleExtent([0.15, 6])
+  .on('start', ()=> svg.classed('dragging', true))
+  .on('zoom', (ev)=>{
+    root.attr('transform', ev.transform);
+    updateLabelVisibility(ev.transform.k);
+  })
+  .on('end', ()=> svg.classed('dragging', false));
+svg.call(zoom).on('dblclick.zoom', null);
+
+d3.select('#zin').on('click', ()=> svg.transition().duration(250).call(zoom.scaleBy, 1.4));
+d3.select('#zout').on('click', ()=> svg.transition().duration(250).call(zoom.scaleBy, 1/1.4));
+d3.select('#zreset').on('click', ()=>{
+  svg.transition().duration(400).call(zoom.transform, d3.zoomIdentity);
+});
+
+/* =========================================================================
+   6. Force Simulation
+   ========================================================================= */
+const simulation = d3.forceSimulation(nodes)
+  .force('link', d3.forceLink(links).id(d=>d.id).distance(l=>{
+    return l.source.cat === l.target.cat ? 55 : 150;
+  }).strength(l=> l.type==='compete' ? 0.15 : 0.35))
+  .force('charge', d3.forceManyBody().strength(d=> -90 - rScale(d.strength)*4))
+  .force('collide', d3.forceCollide().radius(d=> rScale(d.strength)+14).iterations(2))
+  .force('clusterX', d3.forceX(d=>clusterCenter[d.cat].x()).strength(0.10))
+  .force('clusterY', d3.forceY(d=>clusterCenter[d.cat].y()).strength(0.10))
+  .force('center', d3.forceCenter(W/2,H/2).strength(0.02))
+  .on('tick', ticked);
+
+/* links */
+const linkSel = linkLayer.selectAll('line')
+  .data(links)
+  .join('line')
+  .attr('stroke', l=> l.type==='compete' ? '#ef444470' : (l.type==='customer' ? '#22d3ee55' : '#8b93aa45'))
+  .attr('stroke-width', l=> l.type==='customer' ? 1.6 : 1)
+  .attr('stroke-dasharray', l=> l.type==='compete' ? '2,3' : null);
+
+/* glow circles (behind nodes, blurred, category color) */
+const glowSel = glowLayer.selectAll('circle')
+  .data(nodes)
+  .join('circle')
+  .attr('r', d=>rScale(d.strength)*1.15)
+  .attr('fill', d=>CATS[d.cat].color)
+  .attr('opacity', 0.35)
+  .attr('filter','url(#glow)');
+
+/* nodes */
+const nodeSel = nodeLayer.selectAll('circle')
+  .data(nodes)
+  .join('circle')
+  .attr('r', d=>rScale(d.strength))
+  .attr('fill', d=>CATS[d.cat].color)
+  .attr('stroke', '#0a0b12')
+  .attr('stroke-width', 1.5)
+  .style('cursor','pointer')
+  .call(drag(simulation))
+  .on('click', (ev,d)=>{ ev.stopPropagation(); selectNode(d); })
+  .on('mouseenter', function(){ d3.select(this).attr('stroke','#fff').attr('stroke-width',2); })
+  .on('mouseleave', function(d){
+    if(!selected || selected.id!==d3.select(this).datum().id){
+      d3.select(this).attr('stroke','#0a0b12').attr('stroke-width',1.5);
+    }
+  });
+
+/* labels */
+const labelSel = labelLayer.selectAll('text')
+  .data(nodes)
+  .join('text')
+  .attr('class', d=> 'node-label' + (d.strength>=8 ? ' big' : ''))
+  .attr('text-anchor','middle')
+  .attr('dy', d=> -(rScale(d.strength)+6))
+  .text(d=>d.name);
+
+function updateLabelVisibility(k){
+  labelSel.style('display', d=>{
+    if (k > 0.55) return null;
+    if (d.strength >= 8) return null;
+    return 'none';
+  });
+}
+updateLabelVisibility(1);
+
+function ticked(){
+  linkSel
+    .attr('x1', d=>d.source.x).attr('y1', d=>d.source.y)
+    .attr('x2', d=>d.target.x).attr('y2', d=>d.target.y);
+  glowSel.attr('cx', d=>d.x).attr('cy', d=>d.y);
+  nodeSel.attr('cx', d=>d.x).attr('cy', d=>d.y);
+  labelSel.attr('x', d=>d.x).attr('y', d=>d.y);
+}
+
+function drag(sim){
+  let moved = false;
+  return d3.drag()
+    .on('start', (ev,d)=>{
+      moved = false;
+      if(!ev.active) sim.alphaTarget(0.25).restart();
+      d.fx = d.x; d.fy = d.y;
+    })
+    .on('drag', (ev,d)=>{
+      moved = true;
+      d.fx = ev.x; d.fy = ev.y;
+    })
+    .on('end', (ev,d)=>{
+      if(!ev.active) sim.alphaTarget(0);
+      setTimeout(()=>{ d.fx=null; d.fy=null; }, 600);
+    });
+}
+
+/* =========================================================================
+   7. 詳細パネル
+   ========================================================================= */
+let selected = null;
+function selectNode(d){
+  selected = d;
+  nodeSel.attr('stroke', n=> n.id===d.id ? '#fff' : '#0a0b12')
+         .attr('stroke-width', n=> n.id===d.id ? 2.5 : 1.5);
+
+  const related = links.filter(l=> l.source.id===d.id || l.target.id===d.id)
+    .map(l=>{
+      const other = l.source.id===d.id ? l.target : l.source;
+      return {node:other, type:l.type};
+    })
+    .sort((a,b)=> b.node.strength - a.node.strength);
+
+  const cat = CATS[d.cat];
+  const pct = Math.round(d.strength*10);
+
+  document.getElementById('detailBody').innerHTML = `
+    <div class="cat-badge"><span class="cat-dot" style="background:${cat.color}"></span>${cat.label}</div>
+    <h2>${d.name}</h2>
+    <div class="ticker">${d.ticker} ・ ${d.market}</div>
+    <div class="strength-row">
+      <div class="strength-label"><span>テーマ内重要度(仮)</span><span>${d.strength} / 10</span></div>
+      <div class="strength-bar"><div class="strength-fill" style="width:${pct}%;background:${cat.color}"></div></div>
+    </div>
+    <div class="desc">${d.desc}</div>
+    <div class="rel-title">関連銘柄 (${related.length})</div>
+    ${related.map(r=>`
+      <div class="rel-item" data-id="${r.node.id}">
+        <span class="rel-dot" style="background:${CATS[r.node.cat].color}"></span>
+        <span class="rel-name">${r.node.name}</span>
+        <span class="rel-type">${LINK_TYPE_LABEL[r.type]}</span>
+      </div>
+    `).join('')}
+  `;
+  document.querySelectorAll('.rel-item').forEach(el=>{
+    el.addEventListener('click', ()=>{
+      const target = nodeById[el.dataset.id];
+      selectNode(target);
+      focusOn(target);
+    });
+  });
+  document.getElementById('detail').classList.add('open');
+}
+
+function focusOn(d){
+  const scaleTarget = 1.4;
+  const t = d3.zoomIdentity.translate(W/2 - d.x*scaleTarget, H/2 - d.y*scaleTarget).scale(scaleTarget);
+  svg.transition().duration(500).call(zoom.transform, t);
+}
+
+document.getElementById('detailClose').addEventListener('click', ()=>{
+  document.getElementById('detail').classList.remove('open');
+  if(selected){
+    nodeSel.attr('stroke','#0a0b12').attr('stroke-width',1.5);
+    selected = null;
+  }
+});
+svg.on('click', ()=>{
+  document.getElementById('detail').classList.remove('open');
+  if(selected){
+    nodeSel.attr('stroke','#0a0b12').attr('stroke-width',1.5);
+    selected = null;
+  }
+});
+
+/* =========================================================================
+   8. 凡例
+   ========================================================================= */
+const legendEl = document.getElementById('legend');
+let activeFilter = null; // null = 全表示
+function renderLegend(){
+  legendEl.innerHTML = `<div class="lg-title">カテゴリ (クリックで絞り込み)</div>` +
+    catList.map(c=>`
+      <div class="lg-item ${activeFilter && activeFilter!==c ? 'off':''}" data-cat="${c}">
+        <span class="lg-dot" style="background:${CATS[c].color};color:${CATS[c].color}"></span>
+        <span>${CATS[c].label}</span>
+      </div>
+    `).join('') +
+    (activeFilter ? `<div class="lg-reset" id="lgReset">絞り込み解除</div>` : '');
+
+  legendEl.querySelectorAll('.lg-item').forEach(el=>{
+    el.addEventListener('click', ()=>{
+      const c = el.dataset.cat;
+      activeFilter = (activeFilter===c) ? null : c;
+      applyFilter();
+      renderLegend();
+    });
+  });
+  const rs = document.getElementById('lgReset');
+  if(rs) rs.addEventListener('click', (e)=>{ e.stopPropagation(); activeFilter=null; applyFilter(); renderLegend(); });
+}
+function applyFilter(){
+  if(!activeFilter){
+    nodeSel.transition().duration(200).attr('opacity',1);
+    glowSel.transition().duration(200).attr('opacity',0.35);
+    linkSel.transition().duration(200).attr('opacity',1);
+    labelSel.transition().duration(200).attr('opacity',1);
+    return;
+  }
+  nodeSel.transition().duration(200).attr('opacity', d=> d.cat===activeFilter?1:0.12);
+  glowSel.transition().duration(200).attr('opacity', d=> d.cat===activeFilter?0.35:0.03);
+  labelSel.transition().duration(200).attr('opacity', d=> d.cat===activeFilter?1:0.12);
+  linkSel.transition().duration(200).attr('opacity', l=> (l.source.cat===activeFilter||l.target.cat===activeFilter)?0.9:0.04);
+}
+renderLegend();
+
+document.getElementById('legendToggle').addEventListener('click', ()=>{
+  legendEl.classList.toggle('hidden');
+});
+
+/* =========================================================================
+   9. 検索
+   ========================================================================= */
+const searchInput = document.getElementById('search');
+searchInput.addEventListener('keydown', (e)=>{
+  if(e.key !== 'Enter') return;
+  const q = searchInput.value.trim().toLowerCase();
+  if(!q) return;
+  const hit = nodes.find(n => n.name.toLowerCase().includes(q) || n.ticker.toLowerCase().includes(q) || n.id.includes(q));
+  if(hit){
+    selectNode(hit);
+    focusOn(hit);
+  }
+});
+
+/* =========================================================================
+   10. リサイズ対応
+   ========================================================================= */
+window.addEventListener('resize', ()=>{
+  W = window.innerWidth; H = window.innerHeight;
+  simulation.force('center', d3.forceCenter(W/2,H/2).strength(0.02));
+  simulation.alpha(0.3).restart();
+});
+
+/* ヒント文言を数秒後にフェード */
+setTimeout(()=>{ document.getElementById('hint').style.opacity = '0'; }, 6000);
+</script>
+</body>
+</html>
