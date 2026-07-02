@@ -169,9 +169,10 @@
   <div id="legend"></div>
 
   <div id="zoomctl">
-    <button class="zbtn" id="zin">+</button>
-    <button class="zbtn" id="zout">−</button>
-    <button class="zbtn" id="zreset" style="font-size:12px;">⟳</button>
+    <button class="zbtn" id="zin" title="拡大">+</button>
+    <button class="zbtn" id="zout" title="縮小">−</button>
+    <button class="zbtn" id="zreset" style="font-size:12px;" title="表示位置をリセット">⟳</button>
+    <button class="zbtn" id="posReset" style="font-size:14px;" title="ドラッグした玉の配置をすべてリセット">📌</button>
   </div>
 
   <div id="detail">
@@ -500,6 +501,37 @@ d3.select('#zout').on('click', ()=> svg.transition().duration(250).call(zoom.sca
 d3.select('#zreset').on('click', ()=>{
   svg.transition().duration(400).call(zoom.transform, d3.zoomIdentity);
 });
+d3.select('#posReset').on('click', ()=>{
+  if(!confirm('ドラッグして固定した玉の配置をすべてリセットします。よろしいですか?')) return;
+  clearSavedPositions();
+  nodes.forEach(n=>{ n.fx=null; n.fy=null; });
+  simulation.alpha(1).restart();
+});
+
+/* =========================================================================
+   5b. ドラッグ位置の永続化 (localStorage)
+   ノードを手動でドラッグした位置は保存され、ブラウザ更新やシステム改修後も維持される。
+   ========================================================================= */
+const LS_POS_KEY = 'aiSemiMap.positions.v1';
+function loadSavedPositions(){
+  try { return JSON.parse(localStorage.getItem(LS_POS_KEY) || '{}'); } catch(e){ return {}; }
+}
+function savePosition(id, x, y){
+  try {
+    const pos = loadSavedPositions();
+    pos[id] = {x, y};
+    localStorage.setItem(LS_POS_KEY, JSON.stringify(pos));
+  } catch(e){ /* localStorage未対応環境などは無視 */ }
+}
+function clearSavedPositions(){
+  try { localStorage.removeItem(LS_POS_KEY); } catch(e){}
+}
+
+const savedPositions = loadSavedPositions();
+nodes.forEach(n=>{
+  const p = savedPositions[n.id];
+  if(p){ n.x = p.x; n.y = p.y; n.fx = p.x; n.fy = p.y; }
+});
 
 /* =========================================================================
    6. Force Simulation
@@ -578,20 +610,19 @@ function ticked(){
 }
 
 function drag(sim){
-  let moved = false;
   return d3.drag()
     .on('start', (ev,d)=>{
-      moved = false;
       if(!ev.active) sim.alphaTarget(0.25).restart();
       d.fx = d.x; d.fy = d.y;
     })
     .on('drag', (ev,d)=>{
-      moved = true;
       d.fx = ev.x; d.fy = ev.y;
     })
     .on('end', (ev,d)=>{
       if(!ev.active) sim.alphaTarget(0);
-      setTimeout(()=>{ d.fx=null; d.fy=null; }, 600);
+      // ドラッグして離した位置にそのままピン留めし、次回以降も同じ位置に復元されるよう保存する
+      d.fx = ev.x; d.fy = ev.y;
+      savePosition(d.id, d.fx, d.fy);
     });
 }
 
