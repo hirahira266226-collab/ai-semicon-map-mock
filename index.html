@@ -39,6 +39,9 @@
   #legendToggle{background:var(--panel);border:1px solid var(--border);color:var(--text);border-radius:10px;
     padding:9px 12px;font-size:12px;cursor:pointer;backdrop-filter:blur(6px);white-space:nowrap;}
   #legendToggle:hover{border-color:var(--accent);}
+  #scOpenBtn{background:var(--panel);border:1px solid var(--border);color:var(--text);border-radius:10px;
+    padding:9px 12px;font-size:12px;cursor:pointer;backdrop-filter:blur(6px);white-space:nowrap;}
+  #scOpenBtn:hover{border-color:var(--accent);}
 
   /* ---- legend ---- */
   #legend{position:absolute;left:12px;bottom:12px;z-index:20;background:var(--panel);border:1px solid var(--border);
@@ -94,9 +97,53 @@
       border-top:1px solid var(--border);border-radius:18px 18px 0 0;transform:translateY(100%);padding:16px 16px 30px;}
     #detail.open{transform:translateY(0);}
     #title small{display:none;}
-    #searchWrap{max-width:150px;}
+    #searchWrap{max-width:110px;}
     #legend{max-width:150px;font-size:11px;}
+    #scOpenBtn{font-size:11px;padding:9px 8px;}
+    #scPanel{width:100%;max-width:100%;height:100%;border-radius:0;}
   }
+
+  /* ---- supply chain overlay ---- */
+  #scOverlay{position:fixed;inset:0;z-index:50;background:#05060ac0;backdrop-filter:blur(4px);
+    display:none;align-items:center;justify-content:center;}
+  #scOverlay.open{display:flex;}
+  #scPanel{width:min(920px, 94vw);height:min(86vh, 980px);background:#0d0f18;border:1px solid var(--border);
+    border-radius:16px;display:flex;flex-direction:column;overflow:hidden;box-shadow:0 20px 60px #000a;}
+  #scHeader{display:flex;align-items:flex-start;justify-content:space-between;padding:18px 20px 12px;
+    border-bottom:1px solid var(--border);flex-shrink:0;}
+  #scTitle{font-size:17px;font-weight:700;color:var(--text);}
+  #scSubtitle{font-size:11.5px;color:var(--sub);margin-top:3px;}
+  #scHeader .close{position:static;flex-shrink:0;}
+  #scLegendNote{font-size:11.5px;color:var(--sub);line-height:1.6;padding:10px 20px;border-bottom:1px solid var(--border);
+    flex-shrink:0;}
+  .sc-bn-badge{display:inline-block;background:#ef444425;color:#ff8080;border:1px solid #ef444460;
+    font-size:10.5px;font-weight:700;padding:2px 8px;border-radius:99px;margin-right:6px;}
+  #scBody{overflow-y:auto;padding:18px 20px 34px;flex:1;}
+
+  .sc-stage{position:relative;padding-left:34px;padding-bottom:26px;}
+  .sc-stage:last-child{padding-bottom:4px;}
+  .sc-stage::before{content:'';position:absolute;left:9px;top:26px;bottom:-4px;width:2px;background:var(--border);}
+  .sc-stage:last-child::before{display:none;}
+  .sc-num{position:absolute;left:0;top:0;width:20px;height:20px;border-radius:50%;background:#ffffff14;
+    border:1px solid var(--border);color:var(--sub);font-size:10.5px;font-weight:700;display:flex;
+    align-items:center;justify-content:center;}
+  .sc-stage.bn .sc-num{background:#ef444425;border-color:#ef444470;color:#ff9a9a;}
+  .sc-stage-title{font-size:14.5px;font-weight:700;color:var(--text);display:flex;align-items:center;gap:8px;
+    flex-wrap:wrap;}
+  .sc-stage-desc{font-size:12.3px;color:#c3c7d6;line-height:1.7;margin:6px 0 8px;}
+  .sc-bn-note{font-size:11.8px;color:#ffb4b4;background:#ef444414;border:1px solid #ef444440;border-radius:9px;
+    padding:8px 10px;margin-bottom:10px;line-height:1.6;}
+  .sc-chips{display:flex;flex-wrap:wrap;gap:7px;}
+  .sc-chip{background:#ffffff0d;border:1px solid var(--border);border-radius:99px;padding:5px 11px 5px 5px;
+    font-size:12px;color:var(--text);cursor:pointer;display:inline-flex;align-items:center;gap:6px;
+    transition:background .15s,border-color .15s;}
+  .sc-chip:hover{background:#ffffff1c;border-color:var(--accent);}
+  .sc-chip .sc-chip-dot{width:8px;height:8px;border-radius:50%;flex-shrink:0;margin-left:4px;}
+  .sc-chip .sc-chip-ticker{color:var(--sub);font-size:10.5px;}
+  .sc-chip.extra{border-style:dashed;}
+  .sc-extra-desc{width:100%;font-size:11.5px;color:var(--sub);background:#ffffff08;border-radius:8px;
+    padding:8px 10px;margin-top:2px;line-height:1.6;}
+  .sc-final{font-size:12.3px;color:#c3c7d6;line-height:1.7;background:#ffffff08;border-radius:9px;padding:10px 12px;}
 
   .node-label{fill:#c7cbe0;font-size:10px;pointer-events:none;font-family:inherit;paint-order:stroke;
     stroke:#07080dcc;stroke-width:3px;stroke-linejoin:round;}
@@ -114,6 +161,7 @@
       <input id="search" type="text" placeholder="銘柄名・ティッカーで検索…" autocomplete="off">
     </div>
     <button id="legendToggle">凡例</button>
+    <button id="scOpenBtn">🏭 サプライチェーン図</button>
   </div>
 
   <div id="hint">ドラッグで移動 / ホイール・ピンチで拡大縮小 / 玉をタップで詳細</div>
@@ -129,6 +177,23 @@
   <div id="detail">
     <button class="close" id="detailClose">✕</button>
     <div id="detailBody"></div>
+  </div>
+
+  <div id="scOverlay">
+    <div id="scPanel">
+      <div id="scHeader">
+        <div>
+          <div id="scTitle">AI・半導体 サプライチェーン図</div>
+          <div id="scSubtitle">製造工程 → 消費者への提供までの流れ(仮データ・概略)</div>
+        </div>
+        <button class="close" id="scClose">✕</button>
+      </div>
+      <div id="scLegendNote">
+        <span class="sc-bn-badge">ボトルネック</span>
+        投資候補として特に重要な工程。その工程に部材・装置を納入する上流企業(前段の工程)も合わせて有力候補です。
+      </div>
+      <div id="scBody"></div>
+    </div>
   </div>
 </div>
 
@@ -147,6 +212,13 @@ const CATS = {
   power:   { label:'電源/冷却',              color:'#f87171' },
   cloud:   { label:'クラウド/需要側',        color:'#e5e7eb' },
 };
+
+/* 国コード → 国旗絵文字 */
+const FLAGS = {
+  US:'🇺🇸', JP:'🇯🇵', KR:'🇰🇷', TW:'🇹🇼', NL:'🇳🇱', DE:'🇩🇪', GB:'🇬🇧', CN:'🇨🇳',
+};
+function flagOf(market){ return FLAGS[market] || ''; }
+function flagName(d){ return `${flagOf(d.market)} ${d.name}`.trim(); }
 
 /* =========================================================================
    2. ノード(銘柄)データ  ※strengthはテーマ内重要度の仮スコア(1-10)。実際の
@@ -307,6 +379,76 @@ const nodeById = Object.fromEntries(nodes.map(n=>[n.id,n]));
 const LINK_TYPE_LABEL = {supply:'供給',compete:'競合',customer:'顧客'};
 
 /* =========================================================================
+   3b. サプライチェーン図 用データ
+   メイングラフに存在しない銘柄はここに補足情報として定義(グラフには追加しない、
+   図の中でのみ参照する軽量なエントリ)。
+   ========================================================================= */
+const EXTRA_COMPANIES = {
+  arm:      {name:'Arm Holdings', ticker:'ARM', market:'GB',
+    desc:'スマホからAIエッジ機器まで使われるCPUアーキテクチャ(IP)を提供。ライセンス供与モデルで業界標準的地位。'},
+  synopsys: {name:'シノプシス', ticker:'SNPS', market:'US',
+    desc:'半導体設計に必須のEDA(電子設計自動化)ツール大手。Cadenceと共に業界の大半を占める寡占的地位。'},
+  cadence:  {name:'ケイデンス', ticker:'CDNS', market:'US',
+    desc:'EDAツールでSynopsysと並ぶ大手。最先端チップ設計のほぼ全てがこの2社のツールを経由する。'},
+  foxconn:  {name:'鴻海精密工業(Foxconn)', ticker:'2317', market:'TW',
+    desc:'世界最大のEMS(電子機器受託製造)。AIサーバーの組立でも主要な受託先。'},
+  quanta:   {name:'クアンタ・コンピュータ', ticker:'2382', market:'TW',
+    desc:'台湾のノートPC/サーバーODM大手。AIサーバーの主要組立先の一つ。'},
+  wistron:  {name:'ウィストロン', ticker:'3231', market:'TW',
+    desc:'台湾のサーバーODM大手。AIサーバー組立で存在感を増す。'},
+  smci:     {name:'スーパーマイクロ・コンピューター', ticker:'SMCI', market:'US',
+    desc:'NVIDIA GPUを組み込んだAIサーバーシステムをいち早く提供する米システムメーカー。'},
+  dell:     {name:'デル・テクノロジーズ', ticker:'DELL', market:'US',
+    desc:'エンタープライズ向けAIサーバー・インフラを提供する大手ITベンダー。'},
+};
+
+/* 工程(ステージ)の並び。company idは nodes(メイングラフ)か EXTRA_COMPANIES のいずれかを参照。 */
+const SUPPLY_CHAIN_STAGES = [
+  { title:'① 設計・IP / EDA', bottleneck:true,
+    desc:'半導体の回路設計を行う最上流工程。設計そのものに加え、設計に必須のソフトウェア(EDA)やCPUアーキテクチャの原型(IP)を提供する企業がここに含まれる。',
+    bnNote:'EDAツールはSynopsysとCadenceの2社で大半のシェアを握る事実上の寡占。Armはスマホ〜AIエッジの標準アーキテクチャとしてIPライセンス収入を得る、代替が効きにくいポジション。',
+    companies:['nvda','amd','avgo','arm','synopsys','cadence'] },
+
+  { title:'② 材料(ウェハー・化学品)', bottleneck:false,
+    desc:'シリコンウェハーやフォトレジストなど、製造の土台となる材料を供給する工程。',
+    companies:['shinetsu','sumco','resonac','jsr','tok'] },
+
+  { title:'③ 製造装置', bottleneck:true,
+    desc:'ウェハーに回路を形成するための装置を供給する工程。装置が無ければファウンドリは何も製造できない。',
+    bnNote:'EUV露光装置はASMLが世界で唯一供給する完全独占。検査・テスト・成膜等の装置も少数企業に集中しており、参入障壁が非常に高い。',
+    companies:['asml','tel','amat','lrcx','advantest','kla','disco','lasertec','screen','kokusai'] },
+
+  { title:'④ ファウンドリ(前工程製造)', bottleneck:true,
+    desc:'実際にチップを製造する工程。最先端プロセスを量産できる企業は世界でごく僅か。',
+    bnNote:'最先端プロセスの量産はTSMCがほぼ独占的な地位。NVIDIAのAI GPUをはじめ、主要ファブレス企業のチップはTSMC抜きに作れない。',
+    companies:['tsmc','samsung','intel','rapidus'] },
+
+  { title:'⑤ メモリ製造(特にHBM)', bottleneck:true,
+    desc:'AIチップと組み合わせるメモリを供給する工程。広帯域メモリ(HBM)はAI GPUの性能を左右する重要部材。',
+    bnNote:'HBMはSKハイニックスが先行し、サムスン・マイクロンが追う寡占構造。AI GPUの供給量はHBMの生産能力にも制約される。',
+    companies:['skhynix','samsung','micron','kioxia'] },
+
+  { title:'⑥ 後工程・先端パッケージング/テスト', bottleneck:true,
+    desc:'複数のチップを積層・接続して一つのパッケージにまとめ、検査する工程。AI半導体では特に重要度が高い。',
+    bnNote:'TSMCの先端パッケージング(CoWoS等)の能力不足が、AI GPU供給全体のボトルネックとして度々指摘される。基板・OSATもあわせて供給網の要。',
+    companies:['ibiden','shinko','ase','advantest','disco'] },
+
+  { title:'⑦ サーバー/モジュール組立', bottleneck:false,
+    desc:'GPU・メモリ・基板を組み込み、AIサーバーとして完成させる工程。台湾ODM数社に組立が集中している。',
+    companies:['foxconn','quanta','wistron','smci','dell'] },
+
+  { title:'⑧ データセンター/電源・冷却インフラ', bottleneck:false,
+    desc:'AIサーバーを設置・稼働させるデータセンターと、それを支える電源・冷却・光通信インフラ。',
+    companies:['msft','amzn','googl','meta','tdk','nidec','mhi','shindengen','furukawa','sumitomoelec','fujikura','lumentum','coherent'] },
+
+  { title:'⑨ AIサービス/アプリケーション', bottleneck:false,
+    desc:'完成したインフラの上で動く生成AIモデル・サービス。企業や消費者が実際に触れる接点。',
+    companies:['openai','msft','googl'] },
+];
+
+const SUPPLY_CHAIN_FINAL = '⑩ 消費者・エンドユーザー — 個人・法人がAIサービスを利用し対価を支払う最終消費地点。ここでの需要の強さが、川上のボトルネック企業への発注量・投資テーマの持続性を左右する。';
+
+/* =========================================================================
    4. サイズ・レイアウト設定
    ========================================================================= */
 const rScale = d3.scaleSqrt().domain([1,10]).range([7,30]);
@@ -415,7 +557,7 @@ const labelSel = labelLayer.selectAll('text')
   .attr('class', d=> 'node-label' + (d.strength>=8 ? ' big' : ''))
   .attr('text-anchor','middle')
   .attr('dy', d=> -(rScale(d.strength)+6))
-  .text(d=>d.name);
+  .text(d=>flagName(d));
 
 function updateLabelVisibility(k){
   labelSel.style('display', d=>{
@@ -474,7 +616,7 @@ function selectNode(d){
 
   document.getElementById('detailBody').innerHTML = `
     <div class="cat-badge"><span class="cat-dot" style="background:${cat.color}"></span>${cat.label}</div>
-    <h2>${d.name}</h2>
+    <h2>${flagName(d)}</h2>
     <div class="ticker">${d.ticker} ・ ${d.market}</div>
     <div class="strength-row">
       <div class="strength-label"><span>テーマ内重要度(仮)</span><span>${d.strength} / 10</span></div>
@@ -485,7 +627,7 @@ function selectNode(d){
     ${related.map(r=>`
       <div class="rel-item" data-id="${r.node.id}">
         <span class="rel-dot" style="background:${CATS[r.node.cat].color}"></span>
-        <span class="rel-name">${r.node.name}</span>
+        <span class="rel-name">${flagName(r.node)}</span>
         <span class="rel-type">${LINK_TYPE_LABEL[r.type]}</span>
       </div>
     `).join('')}
@@ -579,6 +721,81 @@ searchInput.addEventListener('keydown', (e)=>{
     selectNode(hit);
     focusOn(hit);
   }
+});
+
+/* =========================================================================
+   10b. サプライチェーン図
+   ========================================================================= */
+function scCompanyMeta(id){
+  if(nodeById[id]) return {id, inGraph:true, ...nodeById[id]};
+  if(EXTRA_COMPANIES[id]) return {id, inGraph:false, cat:null, ...EXTRA_COMPANIES[id]};
+  return null;
+}
+
+function renderSupplyChain(){
+  const body = document.getElementById('scBody');
+  body.innerHTML = SUPPLY_CHAIN_STAGES.map((stage, idx)=>{
+    const chips = stage.companies.map(id=>{
+      const c = scCompanyMeta(id);
+      if(!c) return '';
+      const dotColor = c.inGraph ? CATS[c.cat].color : '#8b93aa';
+      const cls = c.inGraph ? 'sc-chip' : 'sc-chip extra';
+      return `<span class="${cls}" data-id="${c.id}" data-ingraph="${c.inGraph}">
+        <span class="sc-chip-dot" style="background:${dotColor}"></span>
+        ${flagName(c)} <span class="sc-chip-ticker">${c.ticker}</span>
+      </span>`;
+    }).join('');
+    return `
+      <div class="sc-stage ${stage.bottleneck?'bn':''}">
+        <div class="sc-num">${idx+1}</div>
+        <div class="sc-stage-title">${stage.title} ${stage.bottleneck? '<span class="sc-bn-badge">ボトルネック</span>':''}</div>
+        <div class="sc-stage-desc">${stage.desc}</div>
+        ${stage.bnNote ? `<div class="sc-bn-note">💡 ${stage.bnNote}</div>` : ''}
+        <div class="sc-chips">${chips}</div>
+      </div>
+    `;
+  }).join('') + `
+    <div class="sc-stage">
+      <div class="sc-num">${SUPPLY_CHAIN_STAGES.length+1}</div>
+      <div class="sc-final">${SUPPLY_CHAIN_FINAL}</div>
+    </div>
+  `;
+
+  body.querySelectorAll('.sc-chip').forEach(el=>{
+    el.addEventListener('click', ()=>{
+      const id = el.dataset.id;
+      const inGraph = el.dataset.ingraph === 'true';
+      if(inGraph){
+        closeSupplyChain();
+        const target = nodeById[id];
+        selectNode(target);
+        focusOn(target);
+      } else {
+        const existing = el.parentElement.querySelector('.sc-extra-desc[data-for="'+id+'"]');
+        if(existing){ existing.remove(); return; }
+        el.parentElement.querySelectorAll('.sc-extra-desc').forEach(n=>n.remove());
+        const c = EXTRA_COMPANIES[id];
+        const desc = document.createElement('div');
+        desc.className = 'sc-extra-desc';
+        desc.setAttribute('data-for', id);
+        desc.textContent = c.desc;
+        el.insertAdjacentElement('afterend', desc);
+      }
+    });
+  });
+}
+
+function openSupplyChain(){
+  renderSupplyChain();
+  document.getElementById('scOverlay').classList.add('open');
+}
+function closeSupplyChain(){
+  document.getElementById('scOverlay').classList.remove('open');
+}
+document.getElementById('scOpenBtn').addEventListener('click', openSupplyChain);
+document.getElementById('scClose').addEventListener('click', closeSupplyChain);
+document.getElementById('scOverlay').addEventListener('click', (e)=>{
+  if(e.target.id === 'scOverlay') closeSupplyChain();
 });
 
 /* =========================================================================
